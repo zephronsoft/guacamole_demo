@@ -61,6 +61,14 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Visual Studio Code
+RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg \
+    && echo "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/microsoft.gpg] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list \
+    && apt-get update \
+    && apt-get install -y code \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Configure locales
 RUN locale-gen en_US.UTF-8
 
@@ -195,6 +203,17 @@ Comment=Google Chrome Web Browser
 Icon=google-chrome
 Exec=google-chrome-stable --no-sandbox --disable-dev-shm-usage
 Categories=Network;WebBrowser;
+EOF
+
+RUN cat > /home/${USER}/Desktop/VSCode.desktop << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Visual Studio Code
+Comment=Code Editor
+Icon=vscode
+Exec=code --no-sandbox --disable-gpu-sandbox
+Categories=Development;IDE;
 EOF
 
 # Set desktop shortcuts permissions

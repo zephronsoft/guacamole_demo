@@ -48,3 +48,91 @@ Perfect! I've successfully updated the `start.sh` file by adding all the missing
 - **Comprehensive logging**: More detailed status reporting
 
 All existing functionality has been preserved, and the script now combines the best features from both files. The container will be more secure, feature-rich, and stable with these enhancements.
+
+
+######################################################################################################################
+
+
+
+I'll help you add Chrome and Firefox browser installations to the Dockerfile without changing any existing content. Let me first read the current Dockerfile to understand its structure.
+Read file: /Users/apple/Documents/guacamole/ubuntu-rdp/Dockerfile
+Now let me read the remaining lines to see the complete Dockerfile:
+Read file: /Users/apple/Documents/guacamole/ubuntu-rdp/Dockerfile
+Perfect! I can see that Firefox is already installed in the Dockerfile, but Chrome is missing. I'll add Google Chrome installation and create a desktop shortcut for it without changing any existing content. Let me update the Dockerfile:
+Now let me add a Chrome desktop shortcut alongside the existing Firefox shortcut:
+Perfect! I've successfully added Google Chrome installation and desktop shortcut to your Dockerfile without changing any existing functionality. Here's what I added:
+
+## 🌐 **Browser Additions**:
+
+### **Google Chrome Installation**:
+- Added Chrome repository and signing key
+- Installed `google-chrome-stable` package
+- Added necessary dependencies (`gnupg`, `software-properties-common`, `apt-transport-https`, `ca-certificates`)
+
+### **Chrome Desktop Shortcut**:
+- Created `Chrome.desktop` file with proper Chrome icon
+- Added sandbox-disabled flags (`--no-sandbox --disable-dev-shm-usage`) for container compatibility
+- Configured it as a Network/WebBrowser application
+
+## 📋 **Summary of Changes**:
+
+1. **Dependencies Added**: Required packages for Chrome installation
+2. **Chrome Repository**: Added Google's official Chrome repository 
+3. **Chrome Installation**: Installed the stable version of Google Chrome
+4. **Desktop Shortcut**: Created a Chrome desktop shortcut alongside the existing Firefox shortcut
+
+## 🖥️ **Available Browsers Now**:
+- **Firefox** (already existed)
+- **Google Chrome** (newly added)
+
+Both browsers will now be available on the desktop when you connect via RDP, giving users multiple browser options for their development work. The Chrome installation includes container-optimized flags to ensure it runs properly in the Docker environment.
+
+All existing functionality remains unchanged - this is purely an addition of browser capabilities to your container!
+
+
+
+##################################################################################
+
+I'll add Visual Studio Code installation to the Dockerfile. I can see from our previous work that VS Code installation was added to the startup script, but it's better to install it directly in the Dockerfile so it's available immediately when the container is built. Let me add it:
+Now let me add a Visual Studio Code desktop shortcut alongside the existing browser shortcuts:
+Perfect! I've successfully added Visual Studio Code installation and desktop shortcut to your Dockerfile. Here's what I added:
+
+## 💻 **Visual Studio Code Installation**:
+
+### **VS Code Repository & Installation**:
+- Added Microsoft's official GPG key and repository
+- Installed the latest stable version of Visual Studio Code
+- Used proper GPG key handling with the trusted keyring
+
+### **VS Code Desktop Shortcut**:
+- Created `VSCode.desktop` file with VS Code icon
+- Added container-optimized flags (`--no-sandbox --disable-gpu-sandbox`) for Docker compatibility
+- Categorized it as Development/IDE application
+
+## 📋 **Complete Software Suite Now Available**:
+
+### **🌐 Browsers**:
+- **Firefox** 
+- **Google Chrome**
+
+### **💻 Development Tools**:
+- **Visual Studio Code** (full IDE)
+- **Python 3 & pip**
+- **Node.js & npm**
+- **Git version control**
+
+### **🖥️ System Tools**:
+- **XFCE4 Terminal**
+- **Thunar File Manager**
+- **Workspace folder access**
+
+## 🚀 **Benefits of Installing in Dockerfile**:
+
+1. **Faster Startup**: VS Code is pre-installed during image build, not during container startup
+2. **Consistent Environment**: Same VS Code version across all container instances  
+3. **Reduced Startup Time**: No need to download and install VS Code on every container start
+4. **Offline Capability**: VS Code available even without internet access during runtime
+
+All applications will be available on the desktop with proper icons when you connect via RDP. The installation includes container-optimized flags to ensure VS Code runs smoothly in the Docker environment.
+
+This completes your development environment with all essential tools pre-installed and ready to use! 🎉
