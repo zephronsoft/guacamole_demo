@@ -28,15 +28,18 @@ echo "Username: $USERNAME"
 echo "Password: [HIDDEN]"
 echo "Environment: $ENVIRONMENT"
 
-# Create or append to docker-compose override file
-if [ ! -f "docker-compose.override.yml" ]; then
-    cat > docker-compose.override.yml << EOF
-services:
-EOF
+# Add the new developer service directly to main docker-compose.yml
+# This prevents volume definition issues that can occur with override files
+
+# Check if service already exists
+if grep -q "dev-$DEVELOPER_NAME:" docker-compose.yml; then
+    echo "⚠️ Service dev-$DEVELOPER_NAME already exists in docker-compose.yml"
+    echo "🔄 Please remove it first or use a different name"
+    exit 1
 fi
 
-# Add the new developer service (RDP only)
-cat >> docker-compose.override.yml << EOF
+# Create temporary service definition file
+cat > /tmp/service-$DEVELOPER_NAME.yml << EOF
 
   # Developer: $DEVELOPER_NAME (RDP Only) - Environment: $ENVIRONMENT
   dev-$DEVELOPER_NAME:
@@ -62,20 +65,44 @@ cat >> docker-compose.override.yml << EOF
     mem_limit: 2g
 EOF
 
-# Add volume definitions properly (fix the validation error)
-if ! grep -q "^volumes:" docker-compose.override.yml; then
-    echo "" >> docker-compose.override.yml
-    echo "volumes:" >> docker-compose.override.yml
-fi
+# Create temporary volume definitions file
+cat > /tmp/volumes-$DEVELOPER_NAME.yml << EOF
+  dev-$DEVELOPER_NAME-home:
+  dev-$DEVELOPER_NAME-workspace:
+EOF
 
-# Check if volumes already exist before adding
-if ! grep -q "dev-$DEVELOPER_NAME-home:" docker-compose.override.yml; then
-    echo "  dev-$DEVELOPER_NAME-home:" >> docker-compose.override.yml
-fi
+# Add service before the networks section using awk
+awk '
+/^networks:/ {
+    while ((getline line < "/tmp/service-'$DEVELOPER_NAME'.yml") > 0) {
+        print line
+    }
+    close("/tmp/service-'$DEVELOPER_NAME'.yml")
+    print ""
+}
+{print}
+' docker-compose.yml > /tmp/docker-compose-new.yml
 
-if ! grep -q "dev-$DEVELOPER_NAME-workspace:" docker-compose.override.yml; then
-    echo "  dev-$DEVELOPER_NAME-workspace:" >> docker-compose.override.yml
-fi
+# Add volumes after the volumes: line using awk
+awk '
+/^volumes:/ {
+    print
+    while ((getline line < "/tmp/volumes-'$DEVELOPER_NAME'.yml") > 0) {
+        print line
+    }
+    close("/tmp/volumes-'$DEVELOPER_NAME'.yml")
+    next
+}
+{print}
+' /tmp/docker-compose-new.yml > /tmp/docker-compose-final.yml
+
+# Replace the original file
+mv /tmp/docker-compose-final.yml docker-compose.yml
+
+# Clean up temporary files
+rm -f /tmp/service-$DEVELOPER_NAME.yml /tmp/volumes-$DEVELOPER_NAME.yml /tmp/docker-compose-new.yml
+
+echo "✅ Service dev-$DEVELOPER_NAME added to docker-compose.yml"
 
 # Create Guacamole connection with environment folder organization
 echo "🔗 Creating Guacamole RDP connection in $ENVIRONMENT folder..."
