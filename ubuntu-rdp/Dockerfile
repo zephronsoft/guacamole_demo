@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     nodejs \
     npm \
-    # Web browser
+    # Web browsers
     firefox \
     # System utilities
     dbus-x11 \
@@ -42,11 +42,24 @@ RUN apt-get update && apt-get install -y \
     procps \
     # File manager
     thunar \
+    # Dependencies for Chrome
+    gnupg \
+    software-properties-common \
+    apt-transport-https \
+    ca-certificates \
     # Clean up to reduce image size
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /tmp/* \
     && rm -rf /var/tmp/*
+
+# Install Google Chrome
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Configure locales
 RUN locale-gen en_US.UTF-8
@@ -170,6 +183,17 @@ Name=Firefox
 Comment=Web Browser
 Icon=firefox
 Exec=firefox
+Categories=Network;WebBrowser;
+EOF
+
+RUN cat > /home/${USER}/Desktop/Chrome.desktop << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Chrome
+Comment=Google Chrome Web Browser
+Icon=google-chrome
+Exec=google-chrome-stable --no-sandbox --disable-dev-shm-usage
 Categories=Network;WebBrowser;
 EOF
 
