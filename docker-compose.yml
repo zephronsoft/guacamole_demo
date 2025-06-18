@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # Database for Guacamole
+  guacamole-db:
+    image: mysql:8.0
+    container_name: fsbook-guacamole-db
+    environment:
+      MYSQL_ROOT_PASSWORD: guacamole_root_password
+      MYSQL_DATABASE: guacamole_db
+      MYSQL_USER: guacamole_user
+      MYSQL_PASSWORD: guacamole_password
+    volumes:
+      - guacamole-db-data:/var/lib/mysql
+      - ./init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - fsbook-guacamole-network
+    restart: unless-stopped
+
+  # Guacamole Daemon
+  guacd:
+    image: guacamole/guacd:latest
+    container_name: fsbook-guacd
+    networks:
+      - fsbook-guacamole-network
+    restart: unless-stopped
+
+  # Guacamole Web Application
+  guacamole:
+    image: guacamole/guacamole:latest
+    container_name: fsbook-guacamole
+    depends_on:
+      - guacamole-db
+      - guacd
+    environment:
+      GUACD_HOSTNAME: guacd
+      GUACD_PORT: 4822
+      MYSQL_HOSTNAME: guacamole-db
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: guacamole_db
+      MYSQL_USER: guacamole_user
+      MYSQL_PASSWORD: guacamole_password
+    ports:
+      - "8080:8080"
+    networks:
+      - fsbook-guacamole-network
+    restart: unless-stopped
+
+  # Developer Container Template (Ubuntu with RDP)
+  dev-container-template:
+    image: fsbook/ubuntu-rdp:latest
+    build:
+      context: ./ubuntu-rdp
+      dockerfile: Dockerfile
+    profiles:
+      - template-only
+    networks:
+      - fsbook-guacamole-network
+
+  # Example Developer Containers
+  # Developer 1
+  dev-john:
+    image: fsbook/ubuntu-rdp:latest
+    container_name: fsbook-dev-john
+    environment:
+      - DEVELOPER_NAME=john
+      - USER_PASSWORD=developer123
+      - VNC_PASSWORD=vnc123
+    ports:
+      - "3391:3389"  # RDP port mapping
+      - "5901:5900"  # VNC port mapping (backup)
+    volumes:
+      - dev-john-home:/home/developer
+      - dev-john-workspace:/workspace
+    networks:
+      - fsbook-guacamole-network
+    restart: unless-stopped
+
+  # Developer 2
+  dev-jane:
+    image: fsbook/ubuntu-rdp:latest
+    container_name: fsbook-dev-jane
+    environment:
+      - DEVELOPER_NAME=jane
+      - USER_PASSWORD=developer123
+      - VNC_PASSWORD=vnc123
+    ports:
+      - "3392:3389"  # RDP port mapping
+      - "5902:5900"  # VNC port mapping (backup)
+    volumes:
+      - dev-jane-home:/home/developer
+      - dev-jane-workspace:/workspace
+    networks:
+      - fsbook-guacamole-network
+    restart: unless-stopped
+
+networks:
+  fsbook-guacamole-network:
+    driver: bridge
+
+volumes:
+  guacamole-db-data:
+  dev-john-home:
+  dev-john-workspace:
+  dev-jane-home:
+  dev-jane-workspace: 
