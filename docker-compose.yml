@@ -58,37 +58,33 @@ services:
       - fsbook-guacamole-network
 
   # Example Developer Containers
-  # Developer 1
+  # Developer 1 (RDP Only)
   dev-john:
     image: fsbook/ubuntu-rdp:latest
     container_name: fsbook-dev-john
     environment:
       - DEVELOPER_NAME=john
       - USER_PASSWORD=developer123
-      - VNC_PASSWORD=vnc123
     ports:
-      - "3391:3389"  # RDP port mapping
-      - "5901:5900"  # VNC port mapping (backup)
+      - "3391:3389"  # RDP port only
     volumes:
-      - dev-john-home:/home/developer
+      - dev-john-home:/home/john
       - dev-john-workspace:/workspace
     networks:
       - fsbook-guacamole-network
     restart: unless-stopped
 
-  # Developer 2
+  # Developer 2 (RDP Only)
   dev-jane:
     image: fsbook/ubuntu-rdp:latest
     container_name: fsbook-dev-jane
     environment:
       - DEVELOPER_NAME=jane
       - USER_PASSWORD=developer123
-      - VNC_PASSWORD=vnc123
     ports:
-      - "3392:3389"  # RDP port mapping
-      - "5902:5900"  # VNC port mapping (backup)
+      - "3392:3389"  # RDP port only
     volumes:
-      - dev-jane-home:/home/developer
+      - dev-jane-home:/home/jane
       - dev-jane-workspace:/workspace
     networks:
       - fsbook-guacamole-network
