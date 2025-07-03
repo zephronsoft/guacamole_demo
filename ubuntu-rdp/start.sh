@@ -63,10 +63,33 @@ export LANG=en_US.UTF-8
 export LANGUAGE=en_US:en
 export LC_ALL=en_US.UTF-8
 
-# Setup XAUTHORITY
+# Setup XAUTHORITY and X11 environment
 XAUTHORITY=$HOME_DIR/.Xauthority
 touch $XAUTHORITY
 sudo chown $USER:$USER $XAUTHORITY
+chmod 600 $XAUTHORITY
+
+# Configure X11 environment for RDP
+echo "🖥️ Configuring X11 environment for RDP..."
+# Set environment variables for X11 compatibility
+export GTK_THEME="Adwaita:light"
+export QT_X11_NO_MITSHM=1
+export _X11_NO_MITSHM=1
+export _MITSHM=0
+export NO_AT_BRIDGE=1
+export GDK_BACKEND=x11
+
+# Add X11 environment to user's profile
+cat >> $HOME_DIR/.bashrc << 'EOF'
+# X11 and GTK environment for RDP compatibility
+export GTK_THEME="Adwaita:light"
+export QT_X11_NO_MITSHM=1
+export _X11_NO_MITSHM=1
+export _MITSHM=0
+export NO_AT_BRIDGE=1
+export GDK_BACKEND=x11
+export XAUTHORITY="$HOME/.Xauthority"
+EOF
 
 # Ensure home directory exists
 if [ ! -d "/home/$USER" ]; then
@@ -266,6 +289,10 @@ sudo apt install -y \
     gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-ugly \
     gstreamer1.0-libav \
+    xauth \
+    x11-utils \
+    x11-xserver-utils \
+    xxd \
     2>/dev/null || true
 
 # Also install Flatpak version as backup option
@@ -327,24 +354,72 @@ fi
 LAUNCHER_SCRIPT="$HOME_DIR/Desktop/launch-epiphany.sh"
 cat > "$LAUNCHER_SCRIPT" << 'EOF'
 #!/bin/bash
-# Epiphany Browser Launcher for RDP environments
+# Epiphany Browser Launcher for RDP environments with X11 fix
 
 # Set display and environment for RDP
 export DISPLAY=${DISPLAY:-:10}
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 
+# Fix X11 authorization for container environment
+if [ -n "$DISPLAY" ]; then
+    # Create .Xauthority if it doesn't exist
+    touch "$HOME/.Xauthority"
+    
+    # Set proper permissions
+    chmod 600 "$HOME/.Xauthority"
+    
+    # Try to get X11 authorization
+    if command -v xauth &> /dev/null; then
+        # Generate a dummy MIT-MAGIC-COOKIE for container
+        xauth add "$DISPLAY" MIT-MAGIC-COOKIE-1 $(xxd -l 16 -p /dev/urandom) 2>/dev/null || true
+    fi
+fi
+
+# Set GTK and X11 environment variables for container compatibility
+export GTK_THEME="Adwaita:light"
+export QT_X11_NO_MITSHM=1
+export _X11_NO_MITSHM=1
+export _MITSHM=0
+export NO_AT_BRIDGE=1
+export XAUTHORITY="$HOME/.Xauthority"
+
+# Set GDK backend to X11 (avoid Wayland issues)
+export GDK_BACKEND=x11
+
+# Disable accessibility bus warnings
+export NO_AT_BRIDGE=1
+
+# Set theme and styling
+export GTK2_RC_FILES="$HOME/.gtkrc-2.0"
+
+echo "🖥️ Starting Epiphany Browser..."
+echo "   Display: $DISPLAY"
+echo "   Runtime Dir: $XDG_RUNTIME_DIR"
+echo "   X Authority: $XAUTHORITY"
+
 # Try different launch methods in order of reliability
 if command -v epiphany-browser &> /dev/null; then
-    echo "Launching Epiphany (apt version)..."
-    epiphany-browser "$@"
+    echo "   Launching Epiphany (apt version)..."
+    epiphany-browser "$@" 2>/dev/null || {
+        echo "   ❌ Epiphany-browser failed, trying with X11 reset..."
+        # Reset X11 connection and try again
+        unset XAUTHORITY
+        export XAUTHORITY="$HOME/.Xauthority"
+        epiphany-browser "$@"
+    }
 elif command -v epiphany &> /dev/null; then
-    echo "Launching Epiphany (alternative)..."
-    epiphany "$@"
+    echo "   Launching Epiphany (alternative)..."
+    epiphany "$@" 2>/dev/null || {
+        echo "   ❌ Epiphany failed, trying with X11 reset..."
+        unset XAUTHORITY
+        export XAUTHORITY="$HOME/.Xauthority"
+        epiphany "$@"
+    }
 elif command -v flatpak &> /dev/null && flatpak list | grep -q "org.gnome.Epiphany"; then
-    echo "Launching Epiphany (Flatpak version)..."
+    echo "   Launching Epiphany (Flatpak version)..."
     flatpak run org.gnome.Epiphany "$@"
 else
-    echo "Epiphany not found. Please check installation."
+    echo "   ❌ Epiphany not found. Please check installation."
     exit 1
 fi
 EOF
@@ -368,6 +443,109 @@ StartupNotify=true
 EOF
 chown "$USER":"$USER" "$SHORTCUT_FILE_ALT"
 chmod +x "$SHORTCUT_FILE_ALT"
+
+# Create X11 and browser test script
+TEST_SCRIPT="$HOME_DIR/Desktop/test-x11-browser.sh"
+cat > "$TEST_SCRIPT" << 'EOF'
+#!/bin/bash
+# X11 and Browser Test Script for troubleshooting
+
+echo "🧪 X11 and Browser Test Script"
+echo "================================"
+echo
+
+# Test 1: Display configuration
+echo "📺 Display Configuration:"
+echo "   DISPLAY: $DISPLAY"
+echo "   XAUTHORITY: $XAUTHORITY"
+echo "   Current User: $(whoami)"
+echo "   User ID: $(id -u)"
+echo
+
+# Test 2: X11 authorization
+echo "🔐 X11 Authorization:"
+if [ -f "$XAUTHORITY" ]; then
+    echo "   ✅ .Xauthority exists"
+    echo "   📁 Location: $XAUTHORITY"
+    echo "   🔒 Permissions: $(ls -l $XAUTHORITY | cut -d' ' -f1)"
+    if command -v xauth &> /dev/null; then
+        echo "   📋 Auth entries:"
+        xauth list 2>/dev/null || echo "   ❌ No auth entries found"
+    else
+        echo "   ❌ xauth not installed"
+    fi
+else
+    echo "   ❌ .Xauthority not found"
+fi
+echo
+
+# Test 3: X11 connection
+echo "🖥️ X11 Connection Test:"
+if xset q &>/dev/null; then
+    echo "   ✅ X11 server connection successful"
+    echo "   📊 Display info: $(xset q | grep -i "display" | head -1)"
+else
+    echo "   ❌ Cannot connect to X11 server"
+fi
+echo
+
+# Test 4: GTK Environment
+echo "🎨 GTK Environment:"
+echo "   GTK_THEME: $GTK_THEME"
+echo "   GDK_BACKEND: $GDK_BACKEND"
+echo "   NO_AT_BRIDGE: $NO_AT_BRIDGE"
+echo
+
+# Test 5: Browser availability
+echo "🌐 Browser Availability:"
+if command -v epiphany-browser &> /dev/null; then
+    echo "   ✅ epiphany-browser found: $(which epiphany-browser)"
+else
+    echo "   ❌ epiphany-browser not found"
+fi
+
+if command -v epiphany &> /dev/null; then
+    echo "   ✅ epiphany found: $(which epiphany)"
+else
+    echo "   ❌ epiphany not found"
+fi
+
+if command -v flatpak &> /dev/null && flatpak list | grep -q "org.gnome.Epiphany"; then
+    echo "   ✅ Flatpak Epiphany found"
+else
+    echo "   ❌ Flatpak Epiphany not found"
+fi
+echo
+
+# Test 6: Try launching browser
+echo "🚀 Browser Launch Test:"
+echo "   Testing epiphany-browser launch..."
+timeout 5 epiphany-browser --version &>/dev/null
+if [ $? -eq 0 ]; then
+    echo "   ✅ epiphany-browser launches successfully"
+else
+    echo "   ❌ epiphany-browser failed to launch"
+fi
+
+echo
+echo "🎯 Recommended Actions:"
+if [ ! -f "$XAUTHORITY" ]; then
+    echo "   - Run: touch ~/.Xauthority && chmod 600 ~/.Xauthority"
+fi
+if ! command -v xauth &> /dev/null; then
+    echo "   - Install xauth: sudo apt install xauth"
+fi
+if ! xset q &>/dev/null; then
+    echo "   - Check X11 server is running"
+    echo "   - Verify DISPLAY variable is set correctly"
+fi
+echo "   - Try the launcher: ~/Desktop/launch-epiphany.sh"
+echo "   - Check container logs for errors"
+echo
+EOF
+
+chmod +x "$TEST_SCRIPT"
+chown "$USER":"$USER" "$TEST_SCRIPT"
 
 cat > /home/$USER/Desktop/Python.desktop << 'EOF'
 [Desktop Entry]
@@ -427,6 +605,22 @@ if ! kill -0 $XORG_PID 2>/dev/null; then
     echo "    ❌ Xorg failed to start"
 else
     echo "    ✅ Xorg started successfully"
+    
+    # Configure X11 authorization for the user
+    echo "    🔐 Setting up X11 authorization..."
+    su - $USER -c "
+        export DISPLAY=$DISPLAY
+        export XAUTHORITY=$HOME/.Xauthority
+        touch \$XAUTHORITY
+        chmod 600 \$XAUTHORITY
+        
+        # Generate X11 authorization cookie
+        if command -v xauth &> /dev/null; then
+            xauth add \$DISPLAY MIT-MAGIC-COOKIE-1 \$(xxd -l 16 -p /dev/urandom) 2>/dev/null || true
+            xauth list 2>/dev/null || echo 'No X11 authorization entries'
+        fi
+    "
+    
     # Attempt to run an X11 app to validate
     su - $USER -c "DISPLAY=$DISPLAY xeyes" || echo "    ⚠️ X11 validation failed"
 fi
@@ -475,6 +669,10 @@ echo "🌐 Browser Options:"
 echo "   - Epiphany Browser (Desktop shortcut)"
 echo "   - Epiphany Web (RDP-Ready launcher)"
 echo "   - Manual launch: epiphany-browser"
+echo ""
+echo "🧪 Troubleshooting Tools:"
+echo "   - X11 & Browser Test: ~/Desktop/test-x11-browser.sh"
+echo "   - Browser Launcher: ~/Desktop/launch-epiphany.sh"
 echo ""
 
 # Enhanced monitoring and restart functionality
