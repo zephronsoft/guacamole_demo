@@ -247,9 +247,35 @@ echo "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/microsoft.gpg] https://pa
 sudo apt update
 sudo apt install -y code
 
-# Install Epiphany Browser
-echo "🌐 Installing Epiphany Browser..."
-sudo apt install -y epiphany-browser
+# Install Epiphany Browser via Flatpak
+echo "🌐 Installing Epiphany Browser (GNOME Web) via Flatpak..."
+
+# Install Flatpak if not already installed
+if ! command -v flatpak &> /dev/null; then
+    echo "  📦 Installing Flatpak..."
+    sudo apt update
+    sudo apt install -y flatpak
+fi
+
+# Add Flathub repository if not already added
+echo "  🔗 Adding Flathub repository..."
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+# Install Epiphany from Flathub
+echo "  🌐 Installing Epiphany (GNOME Web)..."
+flatpak install --noninteractive --user flathub org.gnome.Epiphany 2>/dev/null || {
+    echo "  ⚠️ Flatpak installation failed, falling back to apt..."
+    sudo apt install -y epiphany-browser 2>/dev/null || true
+}
+
+echo "  ✅ Epiphany Browser installation completed"
+
+# Add Flatpak to user's PATH for desktop integration
+echo "  🔧 Configuring Flatpak environment..."
+if ! grep -q "flatpak" /home/$USER/.bashrc 2>/dev/null; then
+    echo 'export PATH="$PATH:/var/lib/flatpak/exports/bin:$HOME/.local/share/flatpak/exports/bin"' >> /home/$USER/.bashrc
+    echo 'export XDG_DATA_DIRS="$XDG_DATA_DIRS:/var/lib/flatpak/exports/share:$HOME/.local/share/flatpak/exports/share"' >> /home/$USER/.bashrc
+fi
 
 # Set ownership of workspace and desktop
 chown -R $USER:$USER /workspace 2>/dev/null || true
@@ -276,8 +302,8 @@ cat >> "$SHORTCUT_FILE" <<EOF
 Version=1.0
 Name=Epiphany Browser
 Comment=Lightweight GNOME web browser
-Exec=epiphany
-Icon=web-browser
+Exec=flatpak run org.gnome.Epiphany
+Icon=org.gnome.Epiphany
 Terminal=false
 Type=Application
 Categories=Network;WebBrowser;
