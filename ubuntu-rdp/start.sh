@@ -247,35 +247,45 @@ echo "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/microsoft.gpg] https://pa
 sudo apt update
 sudo apt install -y code
 
-# Install Epiphany Browser via Flatpak
-echo "🌐 Installing Epiphany Browser (GNOME Web) via Flatpak..."
+# Install Epiphany Browser (RDP-Compatible Installation)
+echo "🌐 Installing Epiphany Browser (GNOME Web) - RDP Compatible..."
 
-# Install Flatpak if not already installed
-if ! command -v flatpak &> /dev/null; then
-    echo "  📦 Installing Flatpak..."
-    sudo apt update
-    sudo apt install -y flatpak
-fi
-
-# Add Flathub repository if not already added
-echo "  🔗 Adding Flathub repository..."
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-# Install Epiphany from Flathub
-echo "  🌐 Installing Epiphany (GNOME Web)..."
-flatpak install --noninteractive --user flathub org.gnome.Epiphany 2>/dev/null || {
-    echo "  ⚠️ Flatpak installation failed, falling back to apt..."
-    sudo apt install -y epiphany-browser 2>/dev/null || true
+# First try apt installation (more reliable in RDP environments)
+echo "  📦 Installing Epiphany via apt (RDP-optimized)..."
+sudo apt update
+sudo apt install -y epiphany-browser 2>/dev/null || {
+    echo "  ⚠️ Apt installation failed, trying alternative methods..."
 }
 
-echo "  ✅ Epiphany Browser installation completed"
+# Install additional dependencies for better RDP compatibility
+echo "  🔧 Installing RDP compatibility packages..."
+sudo apt install -y \
+    webkit2gtk-4.0 \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    2>/dev/null || true
 
-# Add Flatpak to user's PATH for desktop integration
-echo "  🔧 Configuring Flatpak environment..."
-if ! grep -q "flatpak" /home/$USER/.bashrc 2>/dev/null; then
-    echo 'export PATH="$PATH:/var/lib/flatpak/exports/bin:$HOME/.local/share/flatpak/exports/bin"' >> /home/$USER/.bashrc
-    echo 'export XDG_DATA_DIRS="$XDG_DATA_DIRS:/var/lib/flatpak/exports/share:$HOME/.local/share/flatpak/exports/share"' >> /home/$USER/.bashrc
+# Also install Flatpak version as backup option
+echo "  🔄 Installing Flatpak version as backup..."
+if ! command -v flatpak &> /dev/null; then
+    sudo apt install -y flatpak 2>/dev/null || true
 fi
+
+if command -v flatpak &> /dev/null; then
+    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+    flatpak install --noninteractive --user flathub org.gnome.Epiphany 2>/dev/null || true
+    
+    # Add Flatpak to user's PATH
+    if ! grep -q "flatpak" /home/$USER/.bashrc 2>/dev/null; then
+        echo 'export PATH="$PATH:/var/lib/flatpak/exports/bin:$HOME/.local/share/flatpak/exports/bin"' >> /home/$USER/.bashrc
+        echo 'export XDG_DATA_DIRS="$XDG_DATA_DIRS:/var/lib/flatpak/exports/share:$HOME/.local/share/flatpak/exports/share"' >> /home/$USER/.bashrc
+    fi
+fi
+
+echo "  ✅ Epiphany Browser installation completed"
 
 # Set ownership of workspace and desktop
 chown -R $USER:$USER /workspace 2>/dev/null || true
@@ -294,23 +304,70 @@ Exec=code
 Categories=Development;
 EOF
 
-# Create Browser shortcut (Epiphany)
+# Create Browser shortcut (Epiphany) - RDP Compatible
 SHORTCUT_FILE="$HOME_DIR/Desktop/epiphany-browser.desktop"
 if [[ ! -f "$SHORTCUT_FILE" ]]; then
 cat >> "$SHORTCUT_FILE" <<EOF
 [Desktop Entry]
 Version=1.0
 Name=Epiphany Browser
-Comment=Lightweight GNOME web browser
-Exec=flatpak run org.gnome.Epiphany
-Icon=org.gnome.Epiphany
+Comment=Lightweight GNOME web browser (RDP Compatible)
+Exec=sh -c 'epiphany-browser || epiphany || flatpak run org.gnome.Epiphany'
+Icon=web-browser
 Terminal=false
 Type=Application
 Categories=Network;WebBrowser;
+StartupNotify=true
 EOF
   chown "$USER":"$USER" "$SHORTCUT_FILE"
   chmod +x $SHORTCUT_FILE
 fi
+
+# Create additional launcher script for better RDP compatibility
+LAUNCHER_SCRIPT="$HOME_DIR/Desktop/launch-epiphany.sh"
+cat > "$LAUNCHER_SCRIPT" << 'EOF'
+#!/bin/bash
+# Epiphany Browser Launcher for RDP environments
+
+# Set display and environment for RDP
+export DISPLAY=${DISPLAY:-:10}
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+
+# Try different launch methods in order of reliability
+if command -v epiphany-browser &> /dev/null; then
+    echo "Launching Epiphany (apt version)..."
+    epiphany-browser "$@"
+elif command -v epiphany &> /dev/null; then
+    echo "Launching Epiphany (alternative)..."
+    epiphany "$@"
+elif command -v flatpak &> /dev/null && flatpak list | grep -q "org.gnome.Epiphany"; then
+    echo "Launching Epiphany (Flatpak version)..."
+    flatpak run org.gnome.Epiphany "$@"
+else
+    echo "Epiphany not found. Please check installation."
+    exit 1
+fi
+EOF
+
+chmod +x "$LAUNCHER_SCRIPT"
+chown "$USER":"$USER" "$LAUNCHER_SCRIPT"
+
+# Create a more reliable desktop shortcut using the launcher
+SHORTCUT_FILE_ALT="$HOME_DIR/Desktop/Epiphany-Web.desktop"
+cat >> "$SHORTCUT_FILE_ALT" <<EOF
+[Desktop Entry]
+Version=1.0
+Name=Epiphany Web
+Comment=GNOME Web Browser - RDP Ready
+Exec=$HOME_DIR/Desktop/launch-epiphany.sh
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+StartupNotify=true
+EOF
+chown "$USER":"$USER" "$SHORTCUT_FILE_ALT"
+chmod +x "$SHORTCUT_FILE_ALT"
 
 cat > /home/$USER/Desktop/Python.desktop << 'EOF'
 [Desktop Entry]
@@ -408,11 +465,16 @@ echo "   2. Direct RDP: localhost:3389"
 echo ""
 echo "🛠️ Available Tools:"
 echo "   - Visual Studio Code"
-echo "   - Epiphany Web Browser (Lightweight)"
+echo "   - Epiphany Web Browser (RDP-Optimized)"
 echo "   - Python 3 & pip"
 echo "   - Node.js & npm"
 echo "   - Git version control"
 echo "   - Terminal & text editors"
+echo ""
+echo "🌐 Browser Options:"
+echo "   - Epiphany Browser (Desktop shortcut)"
+echo "   - Epiphany Web (RDP-Ready launcher)"
+echo "   - Manual launch: epiphany-browser"
 echo ""
 
 # Enhanced monitoring and restart functionality
