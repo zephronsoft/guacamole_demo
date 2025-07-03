@@ -247,6 +247,10 @@ echo "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/microsoft.gpg] https://pa
 sudo apt update
 sudo apt install -y code
 
+# Install Epiphany Browser
+echo "🌐 Installing Epiphany Browser..."
+sudo apt install -y epiphany-browser
+
 # Set ownership of workspace and desktop
 chown -R $USER:$USER /workspace 2>/dev/null || true
 chown -R $USER:$USER /home/$USER 2>/dev/null || true
@@ -378,7 +382,7 @@ echo "   2. Direct RDP: localhost:3389"
 echo ""
 echo "🛠️ Available Tools:"
 echo "   - Visual Studio Code"
-echo "   - Epiphany Web Browser"
+echo "   - Epiphany Web Browser (Lightweight)"
 echo "   - Python 3 & pip"
 echo "   - Node.js & npm"
 echo "   - Git version control"
